@@ -44,7 +44,7 @@ import org.slf4j.LoggerFactory;
 import static java.lang.String.format;
 import static java.util.Objects.isNull;
 import static java.util.Objects.nonNull;
-import static org.apache.commons.lang3.StringEscapeUtils.escapeXml;
+import static org.apache.commons.text.StringEscapeUtils.escapeXml10;
 
 /**
  * @since 2.7.5
@@ -114,7 +114,7 @@ public class JUnitReporter extends AbstractTestReporter {
         for (TestResult result: results) {
             Properties detailProps = new Properties();
             detailProps.put("test.class", result.getClassName());
-            detailProps.put("test.name", escapeXml(result.getTestName()));
+            detailProps.put("test.name", escapeXml10(result.getTestName()));
             detailProps.put("test.duration", toFormattedTimeString(result.getDuration()));
 
             if (nonNull(result.getDuration())) {
@@ -125,7 +125,7 @@ public class JUnitReporter extends AbstractTestReporter {
                 detailProps.put("test.error.cause", Optional.ofNullable(result.getCause()).map(Object::getClass).map(Class::getName).orElseGet(() -> Objects.toString(result.getFailureType(), "")));
 
                 if (nonNull(result.getErrorMessage())) {
-                    String escapedErrorMessage = escapeXml(result.getErrorMessage());
+                    String escapedErrorMessage = escapeXml10(result.getErrorMessage());
                     detailProps.put("test.error.msg", escapedErrorMessage);
                 }
 

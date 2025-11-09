@@ -23,7 +23,8 @@ import org.citrusframework.functions.Function;
 import java.util.List;
 import java.util.Objects;
 
-import static org.apache.commons.lang3.StringEscapeUtils.escapeJson;
+import static org.apache.commons.text.StringEscapeUtils.escapeJson;
+
 
 /**
  * This function takes a JSON string as input and escapes all double quotes within it.
