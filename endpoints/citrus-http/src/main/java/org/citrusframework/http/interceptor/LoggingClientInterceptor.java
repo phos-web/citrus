@@ -213,12 +213,6 @@ public class LoggingClientInterceptor implements ClientHttpRequestInterceptor {
         }
 
         @Override
-        @Deprecated(forRemoval = true)
-        public int getRawStatusCode() throws IOException {
-            return this.response.getRawStatusCode();
-        }
-
-        @Override
         public String getStatusText() throws IOException {
             return this.response.getStatusText();
         }
