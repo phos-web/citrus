@@ -16,16 +16,16 @@
 
 package org.citrusframework.functions.core;
 
-import org.citrusframework.context.TestContext;
-
 import java.time.Instant;
 import java.util.List;
 
+import org.citrusframework.context.TestContext;
+import org.citrusframework.functions.Function;
+
 /**
  * Function returning the actual timestamp.
- *
  */
-public class UnixTimestampFunction extends AbstractDateFunction {
+public class UnixTimestampFunction implements Function {
     public String execute(List<String> parameterList, TestContext context) {
         return Long.toString(Instant.now().getEpochSecond());
     }

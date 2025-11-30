@@ -177,6 +177,7 @@
         <xs:element ref="tns:fail"/>
         <xs:element ref="tns:iterate"/>
         <xs:element ref="tns:sequential"/>
+        <xs:element ref="tns:finally"/>
         <xs:element ref="tns:parallel"/>
         <xs:element ref="tns:repeat"/>
         <xs:element ref="tns:repeat-on-error"/>
@@ -546,6 +547,13 @@
     </xs:sequence>
   </xs:complexType>
 
+  <xs:complexType name="DoFinally">
+    <xs:sequence>
+      <xs:element name="description" type="xs:string" minOccurs="0"/>
+      <xs:element name="actions" type="tns:TestActions" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+
   <xs:complexType name="Parallel">
     <xs:sequence>
       <xs:element name="description" type="xs:string" minOccurs="0"/>
@@ -729,6 +737,7 @@
   <xs:element name="repeat-on-error" type="tns:RepeatOnError"/>
   <xs:element name="send" type="tns:Send"/>
   <xs:element name="sequential" type="tns:Sequential"/>
+  <xs:element name="finally" type="tns:DoFinally"/>
   <xs:element name="sleep" type="tns:Sleep"/>
   <xs:element name="start" type="tns:Start"/>
   <xs:element name="stop" type="tns:Stop"/>
@@ -1135,6 +1144,25 @@
                         <xs:attribute name="args" type="xs:string"/>
                       </xs:complexType>
                     </xs:element>
+                    <xs:element name="receive">
+                      <xs:complexType>
+                        <xs:annotation>
+                          <xs:documentation>Receive a message via Camel JBang.</xs:documentation>
+                        </xs:annotation>
+                        <xs:attribute name="integration" type="xs:string"/>
+                        <xs:attribute name="endpoint" type="xs:string"/>
+                        <xs:attribute name="uri" type="xs:string"/>
+                        <xs:attribute name="logging-color" type="xs:boolean"/>
+                        <xs:attribute name="args" type="xs:string"/>
+                        <xs:attribute name="grep" type="xs:string"/>
+                        <xs:attribute name="since" type="xs:string"/>
+                        <xs:attribute name="tail" type="xs:string"/>
+                        <xs:attribute name="max-attempts" type="xs:int"/>
+                        <xs:attribute name="delay-between-attempts" type="xs:int"/>
+                        <xs:attribute name="print-logs" type="xs:boolean"/>
+                        <xs:attribute name="stop-on-error-status" type="xs:boolean"/>
+                      </xs:complexType>
+                    </xs:element>
                   </xs:choice>
                 </xs:complexType>
               </xs:element>
@@ -1320,7 +1348,15 @@
                         </xs:sequence>
                       </xs:complexType>
                     </xs:element>
+                    <xs:element name="stubs" minOccurs="0">
+                      <xs:complexType>
+                        <xs:sequence>
+                          <xs:element name="stub" type="xs:string" maxOccurs="unbounded"/>
+                        </xs:sequence>
+                      </xs:complexType>
+                    </xs:element>
                   </xs:sequence>
+                  <xs:attribute name="stub" type="xs:string"/>
                   <xs:attribute name="args" type="xs:string"/>
                   <xs:attribute name="auto-remove" type="xs:boolean"/>
                   <xs:attribute name="wait-for-running-state" type="xs:boolean"/>

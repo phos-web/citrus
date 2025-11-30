@@ -22,13 +22,16 @@ import java.util.Optional;
 
 import org.citrusframework.TestAction;
 import org.citrusframework.TestActionBuilder;
+import org.citrusframework.actions.ReceiveActionBuilder;
 import org.citrusframework.actions.ReceiveMessageAction;
 import org.citrusframework.actions.ReceiveMessageAction.ReceiveMessageActionBuilder;
+import org.citrusframework.actions.SendActionBuilder;
 import org.citrusframework.actions.SendMessageAction;
 import org.citrusframework.endpoint.resolver.EndpointUriResolver;
 import org.citrusframework.exceptions.CitrusRuntimeException;
 import org.citrusframework.http.message.HttpMessageHeaders;
 import org.citrusframework.openapi.AutoFillType;
+import org.citrusframework.openapi.OpenApiSpecification;
 import org.citrusframework.openapi.actions.OpenApiActionBuilder;
 import org.citrusframework.openapi.actions.OpenApiClientActionBuilder;
 import org.citrusframework.openapi.actions.OpenApiClientRequestActionBuilder;
@@ -40,14 +43,19 @@ import org.citrusframework.openapi.actions.OpenApiSpecificationSourceAwareBuilde
 import org.citrusframework.openapi.validation.OpenApiMessageValidationContext;
 import org.citrusframework.spi.ReferenceResolver;
 import org.citrusframework.spi.ReferenceResolverAware;
+import org.citrusframework.yaml.SchemaProperty;
 import org.citrusframework.yaml.actions.Message;
 import org.citrusframework.yaml.actions.Receive;
 import org.citrusframework.yaml.actions.Send;
 
+import static org.citrusframework.openapi.OpenApiSettings.getOpenApiValidationPolicy;
 import static org.citrusframework.openapi.OpenApiSettings.getRequestAutoFillRandomValues;
 import static org.citrusframework.openapi.OpenApiSettings.getResponseAutoFillRandomValues;
+import static org.citrusframework.yaml.SchemaProperty.Kind.ACTION;
 
 public class OpenApi implements TestActionBuilder<TestAction>, ReferenceResolverAware {
+
+    private static final String OPENAPI_GROUP = "openapi";
 
     private OpenApiSpecificationSourceAwareBuilder<?> builder;
 
@@ -59,26 +67,57 @@ public class OpenApi implements TestActionBuilder<TestAction>, ReferenceResolver
 
     private ReferenceResolver referenceResolver;
 
+    @SchemaProperty(advanced = true, description = "Test action description printed when the action is executed.")
     public void setDescription(String value) {
         this.description = value;
     }
 
+    @SchemaProperty(advanced = true)
     public void setActor(String actor) {
         this.actor = actor;
     }
 
+    @SchemaProperty(required = true, description = "The OpenAPI specification source. Can be a local file resource or an Http endpoint URI.")
     public void setSpecification(String specification) {
-        builder = new OpenApiActionBuilder().specification(specification);
+        if (builder == null) {
+            builder = new OpenApiActionBuilder().specification(specification);
+        } else {
+            builder.getOpenApiSpecificationSource().setOpenApiSpecification(
+                    OpenApiSpecification.from(specification, getOpenApiValidationPolicy()));
+        }
     }
 
+    @SchemaProperty(description = "Sets the Http client used to send requests.")
     public void setClient(String httpClient) {
-        builder = ((OpenApiActionBuilder) builder).client(httpClient);
+        if (builder == null) {
+            builder = new OpenApiActionBuilder().client(httpClient);
+        } else if (builder instanceof OpenApiActionBuilder openApiActionBuilder) {
+            builder = openApiActionBuilder.client(httpClient);
+        } else if (builder instanceof OpenApiClientActionBuilder openApiClientActionBuilder) {
+            openApiClientActionBuilder.client(httpClient);
+        }  else if (builder instanceof SendActionBuilder<?,?,?> messageActionBuilder) {
+            messageActionBuilder.endpoint(httpClient);
+        } else if (builder instanceof ReceiveActionBuilder<?,?,?> messageActionBuilder) {
+            messageActionBuilder.endpoint(httpClient);
+        }
     }
 
+    @SchemaProperty(description = "Sets the Http server that provides the Http API.")
     public void setServer(String httpServer) {
-        builder = ((OpenApiActionBuilder) builder).server(httpServer);
+        if (builder == null) {
+            builder = new OpenApiActionBuilder().server(httpServer);
+        } else if (builder instanceof OpenApiActionBuilder openApiActionBuilder) {
+            builder = openApiActionBuilder.server(httpServer);
+        } else if (builder instanceof OpenApiServerActionBuilder openApiServerActionBuilder) {
+            openApiServerActionBuilder.server(httpServer);
+        } else if (builder instanceof SendActionBuilder<?,?,?> messageActionBuilder) {
+            messageActionBuilder.endpoint(httpServer);
+        } else if (builder instanceof ReceiveActionBuilder<?,?,?> messageActionBuilder) {
+            messageActionBuilder.endpoint(httpServer);
+        }
     }
 
+    @SchemaProperty(kind = ACTION, group = OPENAPI_GROUP, description = "Send a request as a client.")
     public void setSendRequest(ClientRequest request) {
         OpenApiClientRequestActionBuilder requestBuilder =
             asClientBuilder().send(request.getOperation());
@@ -117,6 +156,7 @@ public class OpenApi implements TestActionBuilder<TestAction>, ReferenceResolver
         builder = requestBuilder;
     }
 
+    @SchemaProperty(kind = ACTION, group = OPENAPI_GROUP, description = "Receives a response as a client.")
     public void setReceiveResponse(ClientResponse response) {
         OpenApiClientResponseActionBuilder responseBuilder =
                 asClientBuilder().receive(response.getOperation(), response.getStatus());
@@ -161,6 +201,7 @@ public class OpenApi implements TestActionBuilder<TestAction>, ReferenceResolver
         builder = responseBuilder;
     }
 
+    @SchemaProperty(kind = ACTION, group = OPENAPI_GROUP, description = "Receives a client request as a server.")
     public void setReceiveRequest(ServerRequest request) {
         OpenApiServerRequestActionBuilder requestBuilder =
                 asServerBuilder().receive(request.getOperation());
@@ -203,6 +244,7 @@ public class OpenApi implements TestActionBuilder<TestAction>, ReferenceResolver
         builder = requestBuilder;
     }
 
+    @SchemaProperty(kind = ACTION, group = OPENAPI_GROUP, description = "Sends a response as a server.")
     public void setSendResponse(ServerResponse response) {
         OpenApiServerResponseActionBuilder responseBuilder =
                 asServerBuilder().send(response.getOperation(), response.getStatus());
@@ -268,6 +310,10 @@ public class OpenApi implements TestActionBuilder<TestAction>, ReferenceResolver
      * Converts current builder to client builder.
      */
     private OpenApiClientActionBuilder asClientBuilder() {
+        if (builder == null) {
+            builder = new OpenApiActionBuilder().client();
+        }
+
         if (builder instanceof OpenApiClientActionBuilder clientBuilder) {
             return clientBuilder;
         }
@@ -280,6 +326,9 @@ public class OpenApi implements TestActionBuilder<TestAction>, ReferenceResolver
      * Converts current builder to server builder.
      */
     private OpenApiServerActionBuilder asServerBuilder() {
+        if (builder == null) {
+            builder = new OpenApiActionBuilder().server();
+        }
         if (builder instanceof OpenApiServerActionBuilder serverBuilder) {
             return serverBuilder;
         }
@@ -301,6 +350,7 @@ public class OpenApi implements TestActionBuilder<TestAction>, ReferenceResolver
             return operation;
         }
 
+        @SchemaProperty(required = true, description = "The API operation to call.")
         public void setOperation(String operation) {
             this.operation = operation;
         }
@@ -309,6 +359,7 @@ public class OpenApi implements TestActionBuilder<TestAction>, ReferenceResolver
             return uri;
         }
 
+        @SchemaProperty(advanced = true, description = "Http endpoint URI overwrite.")
         public void setUri(String uri) {
             this.uri = uri;
         }
@@ -317,6 +368,7 @@ public class OpenApi implements TestActionBuilder<TestAction>, ReferenceResolver
             return fork;
         }
 
+        @SchemaProperty(advanced = true, description = "When enabled send operation does not block while waiting for the response.")
         public void setFork(Boolean fork) {
             this.fork = fork;
         }
@@ -325,6 +377,7 @@ public class OpenApi implements TestActionBuilder<TestAction>, ReferenceResolver
             return schemaValidation;
         }
 
+        @SchemaProperty(advanced = true, description = "Enables the schema validation.", defaultValue = "false")
         public void setSchemaValidation(Boolean schemaValidation) {
             this.schemaValidation = schemaValidation;
         }
@@ -333,6 +386,7 @@ public class OpenApi implements TestActionBuilder<TestAction>, ReferenceResolver
             return extract;
         }
 
+        @SchemaProperty(advanced = true, description = "Extract message content to test variables before the request is sent.")
         public void setExtract(Message.Extract extract) {
             this.extract = extract;
         }
@@ -341,6 +395,7 @@ public class OpenApi implements TestActionBuilder<TestAction>, ReferenceResolver
             return autoFill;
         }
 
+        @SchemaProperty(description = "Define which of the request fields are automatically filled with generated test data.")
         public void setAutoFill(AutoFillType autoFill) {
             this.autoFill = autoFill;
         }
@@ -373,6 +428,7 @@ public class OpenApi implements TestActionBuilder<TestAction>, ReferenceResolver
             return timeout;
         }
 
+        @SchemaProperty(description = "The timeout while waiting for incoming Http requests.")
         public void setTimeout(Integer timeout) {
             this.timeout = timeout;
         }
@@ -381,6 +437,7 @@ public class OpenApi implements TestActionBuilder<TestAction>, ReferenceResolver
             return operation;
         }
 
+        @SchemaProperty(required = true, description = "The expected API operation.")
         public void setOperation(String operation) {
             this.operation = operation;
         }
@@ -389,6 +446,7 @@ public class OpenApi implements TestActionBuilder<TestAction>, ReferenceResolver
             return select;
         }
 
+        @SchemaProperty(advanced = true, description = "Message selector expression to selectively consume messages.")
         public void setSelect(String select) {
             this.select = select;
         }
@@ -397,6 +455,7 @@ public class OpenApi implements TestActionBuilder<TestAction>, ReferenceResolver
             return validator;
         }
 
+        @SchemaProperty(advanced = true, description = "Explicit message validator.")
         public void setValidator(String validator) {
             this.validator = validator;
         }
@@ -405,6 +464,7 @@ public class OpenApi implements TestActionBuilder<TestAction>, ReferenceResolver
             return validators;
         }
 
+        @SchemaProperty(advanced = true, description = "List of message validators used to validate the message.")
         public void setValidators(String validators) {
             this.validators = validators;
         }
@@ -413,6 +473,7 @@ public class OpenApi implements TestActionBuilder<TestAction>, ReferenceResolver
             return headerValidator;
         }
 
+        @SchemaProperty(advanced = true, description = "Explicit message header validator.")
         public void setHeaderValidator(String headerValidator) {
             this.headerValidator = headerValidator;
         }
@@ -421,6 +482,7 @@ public class OpenApi implements TestActionBuilder<TestAction>, ReferenceResolver
             return headerValidators;
         }
 
+        @SchemaProperty(advanced = true, description = "List of message header validators used to validate the message.")
         public void setHeaderValidators(String headerValidators) {
             this.headerValidators = headerValidators;
         }
@@ -433,6 +495,7 @@ public class OpenApi implements TestActionBuilder<TestAction>, ReferenceResolver
             return validates;
         }
 
+        @SchemaProperty(description = "Additional message validation expressions.")
         public void setValidates(List<Receive.Validate> validates) {
             this.validates = validates;
         }
@@ -441,6 +504,7 @@ public class OpenApi implements TestActionBuilder<TestAction>, ReferenceResolver
             return extract;
         }
 
+        @SchemaProperty(advanced = true, description = "Extract message content to test variables.")
         public void setExtract(Message.Extract extract) {
             this.extract = extract;
         }
@@ -449,6 +513,7 @@ public class OpenApi implements TestActionBuilder<TestAction>, ReferenceResolver
             return schemaValidation;
         }
 
+        @SchemaProperty(description = "Enables the schema validation.", defaultValue = "false")
         public void setSchemaValidation(Boolean schemaValidation) {
             this.schemaValidation = schemaValidation;
         }
@@ -469,6 +534,7 @@ public class OpenApi implements TestActionBuilder<TestAction>, ReferenceResolver
             return operation;
         }
 
+        @SchemaProperty(required = true, description = "The OpenAPI operation that generates the response.")
         public void setOperation(String operation) {
             this.operation = operation;
         }
@@ -477,6 +543,7 @@ public class OpenApi implements TestActionBuilder<TestAction>, ReferenceResolver
             return status;
         }
 
+        @SchemaProperty(description = "The response to generate.")
         public void setStatus(String status) {
             this.status = status;
         }
@@ -485,6 +552,7 @@ public class OpenApi implements TestActionBuilder<TestAction>, ReferenceResolver
             return extract;
         }
 
+        @SchemaProperty(advanced = true, description = "Extract message content to test variables.")
         public void setExtract(Message.Extract extract) {
             this.extract = extract;
         }
@@ -493,6 +561,7 @@ public class OpenApi implements TestActionBuilder<TestAction>, ReferenceResolver
             return schemaValidation;
         }
 
+        @SchemaProperty(advanced = true, description = "Enables the schema validation.", defaultValue = "false")
         public void setSchemaValidation(Boolean schemaValidation) {
             this.schemaValidation = schemaValidation;
         }
@@ -501,6 +570,7 @@ public class OpenApi implements TestActionBuilder<TestAction>, ReferenceResolver
             return autoFill;
         }
 
+        @SchemaProperty(description = "Define which response fields are set with generated values.")
         public void setAutoFill(AutoFillType autoFill) {
             this.autoFill = autoFill;
         }
@@ -535,6 +605,7 @@ public class OpenApi implements TestActionBuilder<TestAction>, ReferenceResolver
             return timeout;
         }
 
+        @SchemaProperty(description = "Timeout in milliseconds while waiting for the server response.")
         public void setTimeout(Integer timeout) {
             this.timeout = timeout;
         }
@@ -543,6 +614,7 @@ public class OpenApi implements TestActionBuilder<TestAction>, ReferenceResolver
             return operation;
         }
 
+        @SchemaProperty(required = true, description = "The OpenAPI operation that defines the expected response.")
         public void setOperation(String operation) {
             this.operation = operation;
         }
@@ -551,6 +623,7 @@ public class OpenApi implements TestActionBuilder<TestAction>, ReferenceResolver
             return status;
         }
 
+        @SchemaProperty(description = "Expected response status.")
         public void setStatus(String status) {
             this.status = status;
         }
@@ -559,6 +632,7 @@ public class OpenApi implements TestActionBuilder<TestAction>, ReferenceResolver
             return select;
         }
 
+        @SchemaProperty(advanced = true, description = "Message selector expression to selectively consume messages.")
         public void setSelect(String select) {
             this.select = select;
         }
@@ -567,6 +641,7 @@ public class OpenApi implements TestActionBuilder<TestAction>, ReferenceResolver
             return selector;
         }
 
+        @SchemaProperty(advanced = true, description = "Message selector to selectively consume messages.")
         public void setSelector(Receive.Selector selector) {
             this.selector = selector;
         }
@@ -575,6 +650,7 @@ public class OpenApi implements TestActionBuilder<TestAction>, ReferenceResolver
             return validator;
         }
 
+        @SchemaProperty(advanced = true, description = "Explicit message validator.")
         public void setValidator(String validator) {
             this.validator = validator;
         }
@@ -583,6 +659,7 @@ public class OpenApi implements TestActionBuilder<TestAction>, ReferenceResolver
             return validators;
         }
 
+        @SchemaProperty(advanced = true, description = "List of message validators used to validate the message.")
         public void setValidators(String validators) {
             this.validators = validators;
         }
@@ -591,6 +668,7 @@ public class OpenApi implements TestActionBuilder<TestAction>, ReferenceResolver
             return headerValidator;
         }
 
+        @SchemaProperty(advanced = true, description = "Explicit message header validator.")
         public void setHeaderValidator(String headerValidator) {
             this.headerValidator = headerValidator;
         }
@@ -599,6 +677,7 @@ public class OpenApi implements TestActionBuilder<TestAction>, ReferenceResolver
             return headerValidators;
         }
 
+        @SchemaProperty(advanced = true, description = "List of message header validators used to validate the message.")
         public void setHeaderValidators(String headerValidators) {
             this.headerValidators = headerValidators;
         }
@@ -615,6 +694,7 @@ public class OpenApi implements TestActionBuilder<TestAction>, ReferenceResolver
             return extract;
         }
 
+        @SchemaProperty(advanced = true, description = "Extract message content to test variables.")
         public void setExtract(Message.Extract extract) {
             this.extract = extract;
         }
@@ -623,6 +703,7 @@ public class OpenApi implements TestActionBuilder<TestAction>, ReferenceResolver
             return schemaValidation;
         }
 
+        @SchemaProperty(description = "Enables the schema validation.", defaultValue = "false")
         public void setSchemaValidation(Boolean schemaValidation) {
             this.schemaValidation = schemaValidation;
         }
