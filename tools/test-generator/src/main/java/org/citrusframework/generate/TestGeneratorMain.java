@@ -16,16 +16,13 @@
 
 package org.citrusframework.generate;
 
+import org.apache.commons.cli.*;
+import org.apache.commons.cli.help.HelpFormatter;
 import org.citrusframework.CitrusSettings;
+import org.citrusframework.exceptions.CitrusRuntimeException;
 import org.citrusframework.generate.xml.XmlTestGenerator;
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.CommandLineParser;
-import org.apache.commons.cli.GnuParser;
-import org.apache.commons.cli.HelpFormatter;
-import org.apache.commons.cli.Option;
-import org.apache.commons.cli.OptionBuilder;
-import org.apache.commons.cli.Options;
-import org.apache.commons.cli.ParseException;
+
+import java.io.IOException;
 
 /**
  * @since 2.7.4
@@ -34,18 +31,19 @@ public class TestGeneratorMain {
 
     /**
      * Main CLI method.
+     *
      * @param args
      */
     public static void main(String[] args) {
         Options options = new TestGeneratorCliOptions();
 
         try {
-            CommandLineParser cliParser = new GnuParser();
+            CommandLineParser cliParser = new DefaultParser();
             CommandLine cmd = cliParser.parse(options, args);
 
             if (cmd.hasOption("help")) {
-                HelpFormatter formatter = new HelpFormatter();
-                formatter.printHelp("CITRUS test creation", options);
+                HelpFormatter formatter = HelpFormatter.builder().get();
+                formatter.printHelp("CITRUS test creation", "",options,"", false);
                 return;
             }
 
@@ -59,8 +57,15 @@ public class TestGeneratorMain {
 
             generator.create();
         } catch (ParseException e) {
-            HelpFormatter formatter = new HelpFormatter();
-            formatter.printHelp("\n **** CITRUS TEST GENERATOR ****", "\n CLI options:", options, "");
+            HelpFormatter formatter = HelpFormatter.builder().get();
+            try {
+                formatter.printHelp("\n **** CITRUS TEST GENERATOR ****", "\n CLI options:", options, "", false);
+            }
+            catch (IOException ex) {
+                throw new CitrusRuntimeException("Failed to display help message: ", ex);
+            }
+        } catch (IOException e) {
+            throw new CitrusRuntimeException("Failed to display help message: ", e);
         }
     }
 
