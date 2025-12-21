@@ -117,7 +117,7 @@ public class ResourcePathTypeResolver implements TypeResolver {
     private final Map<String, Map<String, String>> typeCache = new ConcurrentHashMap<>();
 
     static {
-        if (rootIsNotCitrusApiJar()) {
+        if (rootIsNotCitrusApiJar() && ROOT != null) {
             try {
                 rootFs = newFileSystem(new File(ROOT.toString().substring("file:".length())).toPath());
             } catch (IOException e) {
